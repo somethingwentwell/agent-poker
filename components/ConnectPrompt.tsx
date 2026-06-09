@@ -117,7 +117,7 @@ THOUGHT_LANG=…`;
   const promptBlock = (
     <>
       <pre
-        className={`bg-black/50 rounded-lg p-2.5 sm:p-3 text-[11px] sm:text-xs overflow-x-auto text-evo-gray1 break-all whitespace-pre-wrap sm:whitespace-pre leading-relaxed ${
+        className={`bg-black/50 rounded-lg p-2.5 sm:p-3 text-[11px] sm:text-xs overflow-x-auto text-evo-gray1 break-all whitespace-pre-wrap sm:whitespace-pre leading-relaxed select-text cursor-text ${
           compact ? "" : "min-h-[220px] sm:min-h-[260px]"
         }`}
         suppressHydrationWarning

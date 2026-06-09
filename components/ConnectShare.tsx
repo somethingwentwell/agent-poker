@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import QRCode from "react-qr-code";
 import { useI18n } from "@/components/LocaleProvider";
+import { copyText } from "@/lib/copy-text";
 
 export default function ConnectShare({
   prompt,
@@ -19,19 +20,28 @@ export default function ConnectShare({
 }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const copy = useCallback(async () => {
     if (!ready) return;
-    try {
-      await navigator.clipboard.writeText(prompt);
+    setFailed(false);
+    const ok = await copyText(prompt);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* clipboard may be unavailable */
+      return;
     }
+    setFailed(true);
+    setTimeout(() => setFailed(false), 3000);
   }, [prompt, ready]);
 
   const size = compact ? 88 : 120;
+
+  const label = copied
+    ? t("connect.copied")
+    : failed
+      ? t("connect.copyFailed")
+      : t("connect.copy");
 
   return (
     <div
@@ -63,11 +73,12 @@ export default function ConnectShare({
         type="button"
         onClick={copy}
         disabled={!ready}
+        aria-live="polite"
         className={`evo-btn-secondary px-4 py-2 text-xs sm:text-sm disabled:opacity-50 ${
           showQr ? "w-full sm:w-auto" : "w-full sm:w-auto self-start"
-        }`}
+        } ${failed ? "border-evo-red/60 text-evo-red" : ""}`}
       >
-        {copied ? t("connect.copied") : t("connect.copy")}
+        {label}
       </button>
     </div>
   );

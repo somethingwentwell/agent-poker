@@ -105,6 +105,7 @@ const zhCN = {
     refreshName: "↻ 刷新 NAME",
     copy: "复制提示",
     copied: "已复制！",
+    copyFailed: "复制失败——请手动选中上方文字",
   },
   felt: {
     pot: "底池",

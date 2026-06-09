@@ -105,6 +105,7 @@ const en = {
     refreshName: "↻ Refresh NAME",
     copy: "Copy prompt",
     copied: "Copied!",
+    copyFailed: "Copy failed — select text above manually",
   },
   felt: {
     pot: "POT",
