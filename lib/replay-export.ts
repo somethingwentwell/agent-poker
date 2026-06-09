@@ -59,11 +59,12 @@ export function parseReplayFile(
     return { ok: false, error: `unsupported replay format: ${body.format}` };
   }
 
-  if (!hasHistoryShape(body)) {
+  if (!hasHistoryShape(raw)) {
     return { ok: false, error: "missing history, results, or players" };
   }
 
-  if (body.history.length === 0) {
+  const historyData = raw as HistoryData;
+  if (historyData.history.length === 0) {
     return { ok: false, error: "replay has no actions" };
   }
 
@@ -82,9 +83,9 @@ export function parseReplayFile(
       bigBlind: typeof body.bigBlind === "number" ? body.bigBlind : 20,
       startingChips:
         typeof body.startingChips === "number" ? body.startingChips : undefined,
-      players: body.players,
-      history: body.history,
-      results: body.results,
+      players: historyData.players,
+      history: historyData.history,
+      results: historyData.results,
     },
   };
 }

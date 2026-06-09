@@ -49,6 +49,6 @@ export async function POST(
     return NextResponse.json({ error: result.error }, { status: 409 });
   }
 
-  saveRoom(room);
+  await saveRoom(room);
   return NextResponse.json({ ok: true, state: playerView(room, player.id) });
 }

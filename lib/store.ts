@@ -7,9 +7,10 @@ import {
   roomExists,
   listStoredRooms,
 } from "./persistence";
+import { onRoomInvalidated } from "./redis";
 
-// Room store: SQLite is source of truth, with a process-local cache for hot polls.
-// TODO: Redis for multi-instance cache + Postgres for long-term storage.
+// Room store: Postgres is durable storage, Redis is shared hot cache,
+// with a process-local L1 cache for fast polling (invalidated via Redis pub/sub).
 
 interface Store {
   rooms: Map<string, Room>;
@@ -20,6 +21,10 @@ if (!g.__agentpoker) {
   g.__agentpoker = { rooms: new Map() };
 }
 const cache = g.__agentpoker.rooms;
+
+onRoomInvalidated((code) => {
+  cache.delete(code);
+});
 
 const ROOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 let counter = 0;
@@ -33,10 +38,10 @@ function pseudoRandom(): number {
   return (t * 31 + counter * 17) % ROOM_CHARS.length;
 }
 
-export function genRoomCode(): string {
+export async function genRoomCode(): Promise<string> {
   let code = "";
   for (let i = 0; i < 5; i++) code += ROOM_CHARS[pseudoRandom()];
-  if (cache.has(code) || roomExists(code)) return genRoomCode();
+  if (cache.has(code) || (await roomExists(code))) return genRoomCode();
   return code;
 }
 
@@ -52,40 +57,39 @@ export function genToken(): string {
   return s;
 }
 
-export function getRoom(code: string): Room | undefined {
+export async function getRoom(code: string): Promise<Room | undefined> {
   const upper = code.toUpperCase();
   const cached = cache.get(upper);
   if (cached) return cached;
 
-  const loaded = loadRoom(upper);
+  const loaded = await loadRoom(upper);
   if (!loaded) return undefined;
 
   if (!loaded.hostToken) {
     loaded.hostToken = genToken();
-    persistRoom(loaded);
+    await persistRoom(loaded);
   }
 
   cache.set(upper, loaded);
   return loaded;
 }
 
-export async function getRoomAsync(code: string): Promise<Room | undefined> {
-  return getRoom(code);
-}
+/** Alias kept for routes that already awaited an async getter. */
+export const getRoomAsync = getRoom;
 
-export function saveRoom(room: Room): void {
+export async function saveRoom(room: Room): Promise<void> {
   cache.set(room.code, room);
-  persistRoom(room);
+  await persistRoom(room);
 }
 
-export function createRoom(opts: {
+export async function createRoom(opts: {
   startingChips?: number;
   smallBlind?: number;
   bigBlind?: number;
   maxHands?: number;
   seed?: number;
-}): Room {
-  const code = genRoomCode();
+}): Promise<Room> {
+  const code = await genRoomCode();
   const seed = opts.seed ?? Math.floor(Date.now() % 2147483647);
   const room: Room = {
     code,
@@ -103,7 +107,7 @@ export function createRoom(opts: {
     bigBlind: opts.bigBlind ?? LIMITS.defaultBigBlind,
     maxHands: opts.maxHands ?? 0,
   };
-  saveRoom(room);
+  await saveRoom(room);
   return room;
 }
 
@@ -147,8 +151,8 @@ export function authPlayer(
   return p;
 }
 
-export function listRooms(): Room[] {
-  for (const room of listStoredRooms()) {
+export async function listRooms(): Promise<Room[]> {
+  for (const room of await listStoredRooms()) {
     cache.set(room.code, room);
   }
   return [...cache.values()];

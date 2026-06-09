@@ -1,45 +1,78 @@
 import type { Room } from "./engine/types";
-import { getDb } from "./db";
+import { closeDb, getPool, initDb } from "./db";
+import {
+  cacheRoom,
+  closeRedis,
+  flushRoomCache,
+  getCachedRoom,
+} from "./redis";
 
-// SQLite persistence for rooms (JSON blob per room).
-//
-// TODO: add Redis for hot-state + pub/sub across instances, Postgres for
-// durable history / analytics. Keep the Room JSON shape so adapters can swap
-// without touching the engine.
+// Postgres is durable storage; Redis is the shared hot-state cache.
+// Room JSON shape is unchanged so the engine stays storage-agnostic.
 
 export const persistenceEnabled = true;
 
-export function persistRoom(room: Room): void {
+export async function persistRoom(room: Room): Promise<void> {
+  await initDb();
   const now = Date.now();
-  getDb()
-    .prepare(
-      `INSERT INTO rooms (code, data, created_at, updated_at)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(code) DO UPDATE SET
-         data = excluded.data,
-         updated_at = excluded.updated_at`,
-    )
-    .run(room.code, JSON.stringify(room), room.createdAt, now);
+  await getPool().query(
+    `INSERT INTO rooms (code, data, created_at, updated_at)
+     VALUES ($1, $2::jsonb, $3, $4)
+     ON CONFLICT (code) DO UPDATE SET
+       data = EXCLUDED.data,
+       updated_at = EXCLUDED.updated_at`,
+    [room.code, JSON.stringify(room), room.createdAt, now],
+  );
+  await cacheRoom(room);
 }
 
-export function loadRoom(code: string): Room | null {
-  const row = getDb()
-    .prepare("SELECT data FROM rooms WHERE code = ?")
-    .get(code.toUpperCase()) as { data: string } | undefined;
+export async function loadRoom(code: string): Promise<Room | null> {
+  const upper = code.toUpperCase();
+
+  const cached = await getCachedRoom(upper);
+  if (cached) return cached;
+
+  await initDb();
+  const result = await getPool().query(
+    "SELECT data FROM rooms WHERE code = $1",
+    [upper],
+  );
+  const row = result.rows[0] as { data: Room } | undefined;
   if (!row) return null;
-  return JSON.parse(row.data) as Room;
+
+  const room = row.data;
+  await cacheRoom(room);
+  return room;
 }
 
-export function roomExists(code: string): boolean {
-  const row = getDb()
-    .prepare("SELECT 1 AS ok FROM rooms WHERE code = ?")
-    .get(code.toUpperCase()) as { ok: number } | undefined;
-  return Boolean(row);
+export async function roomExists(code: string): Promise<boolean> {
+  const upper = code.toUpperCase();
+  const cached = await getCachedRoom(upper);
+  if (cached) return true;
+
+  await initDb();
+  const result = await getPool().query(
+    "SELECT 1 AS ok FROM rooms WHERE code = $1",
+    [upper],
+  );
+  return result.rowCount === 1;
 }
 
-export function listStoredRooms(): Room[] {
-  const rows = getDb()
-    .prepare("SELECT data FROM rooms ORDER BY updated_at DESC")
-    .all() as { data: string }[];
-  return rows.map((r) => JSON.parse(r.data) as Room);
+export async function listStoredRooms(): Promise<Room[]> {
+  await initDb();
+  const result = await getPool().query(
+    "SELECT data FROM rooms ORDER BY updated_at DESC",
+  );
+  return result.rows.map((row) => row.data as Room);
+}
+
+export async function deleteAllRooms(): Promise<void> {
+  await initDb();
+  await getPool().query("DELETE FROM rooms");
+  await flushRoomCache();
+}
+
+export async function resetPersistence(): Promise<void> {
+  await closeDb();
+  await closeRedis();
 }

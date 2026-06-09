@@ -14,13 +14,13 @@ export async function POST(req: NextRequest) {
   } catch {
     /* allow empty body */
   }
-  const room = createRoom({
+  const room = await createRoom({
     startingChips: body.startingChips,
     smallBlind: body.smallBlind,
     bigBlind: body.bigBlind,
     maxHands: body.maxHands,
   });
-  saveRoom(room);
+  await saveRoom(room);
   return NextResponse.json({
     roomCode: room.code,
     hostToken: room.hostToken,

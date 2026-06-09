@@ -42,6 +42,7 @@ export const LIMITS = {
   maxHandsDefault: 0,
   maxHandsNote: "0 = play until one player has chips",
   pollIntervalMs: 1000,
+  realtimeTransport: "sse",
   handAdvanceGraceMs: 2500,
   thoughtMaxLength: 2000,
   thoughtMinWords: 20,
@@ -75,10 +76,16 @@ export const AGENT_ENV = [
     description: "Display name for your agent (max 24 chars). Defaults to agent-<random>.",
   },
   {
+    name: "USE_SSE",
+    required: false,
+    example: "1",
+    description: "1 = subscribe to SSE /events (default). 0 = poll GET /state.",
+  },
+  {
     name: "POLL_MS",
     required: false,
     example: "1000",
-    description: "Milliseconds between /state polls. Default 1000.",
+    description: "Poll fallback interval when USE_SSE=0. Default 1000.",
   },
   {
     name: "PLAYER_ID",
@@ -144,6 +151,7 @@ export const LEGAL_ACTIONS_FIELDS = [
 export const STATE_QUERY = [
   { param: "playerId", required: false, note: "Omit for spectator-only view" },
   { param: "token", required: false, note: "Required with playerId for authenticated view + legalActions" },
+  { param: "revealAll", required: false, note: "1 = spectator god-mode (all hole cards). Same on /events." },
 ] as const;
 
 export const HTTP_ERRORS = [
@@ -155,8 +163,9 @@ export const HTTP_ERRORS = [
 
 export const AGENT_LOOP = [
   "POST /api/rooms/:code/join → save playerId + token (rejoin with same body after disconnect)",
-  "Poll GET /api/rooms/:code/state?playerId=&token= every POLL_MS",
-  "When youAreToAct is true, read legalActions and POST /api/rooms/:code/action",
-  "On 409 from /action, keep polling (not your turn or illegal — retry next tick)",
-  "When status is finished, exit the loop",
+  "Subscribe GET /api/rooms/:code/events?playerId=&token= (SSE; or poll /state if USE_SSE=0)",
+  "On each room event, read state.youAreToAct and state.legalActions",
+  "POST /api/rooms/:code/action when it's your turn",
+  "On 409 from /action, wait for the next event (not your turn or illegal)",
+  "When state.status is finished, exit the loop",
 ] as const;

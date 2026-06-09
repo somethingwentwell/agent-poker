@@ -7,37 +7,8 @@ import Felt from "@/components/Felt";
 import GameChat from "@/components/GameChat";
 import ReplayBar from "@/components/ReplayBar";
 import PlayerAvatar from "@/components/PlayerAvatar";
-import { buildReplayView, type HistoryData } from "@/lib/replay-view";
-
-interface Meta {
-  code: string;
-  status: "lobby" | "playing" | "finished";
-  count: number;
-  smallBlind: number;
-  bigBlind: number;
-  startingChips: number;
-  handNo: number;
-  players: {
-    id: string;
-    name: string;
-    avatar: number;
-    chips: number;
-    isHost: boolean;
-    connected: boolean;
-  }[];
-}
-
-interface StateView {
-  status: string;
-  handNo: number;
-  street: string | null;
-  board: string[];
-  pot: number;
-  toAct: string | null;
-  buttonPlayer: string | null;
-  players: any[];
-  handOver: boolean;
-}
+import { buildReplayView } from "@/lib/replay-view";
+import { useRoomEvents } from "@/hooks/useRoomEvents";
 
 export default function RoomPage({
   params,
@@ -46,16 +17,16 @@ export default function RoomPage({
 }) {
   const { code } = use(params);
   const { t } = useI18n();
-  const [meta, setMeta] = useState<Meta | null>(null);
-  const [view, setView] = useState<StateView | null>(null);
   const [host, setHost] = useState<{ hostToken: string } | null>(null);
   const [showReplay, setShowReplay] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
-  const [historyData, setHistoryData] = useState<HistoryData | null>(null);
   const [scrubStep, setScrubStep] = useState<number | null>(null);
   const [scrubPlaying, setScrubPlaying] = useState(false);
   const [showAllHands, setShowAllHands] = useState(false);
+  const { meta, view, historyData, error: streamErr } = useRoomEvents(code, {
+    revealAll: showAllHands,
+  });
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     const raw = sessionStorage.getItem(`host:${code}`);
@@ -63,64 +34,10 @@ export default function RoomPage({
   }, [code]);
 
   useEffect(() => {
-    let alive = true;
-    const tick = async () => {
-      try {
-        const r = await fetch(`/api/rooms/${code}`);
-        if (!r.ok) {
-          if (r.status === 404 && alive) setErr(t("room.notFound"));
-          return;
-        }
-        const m = await r.json();
-        if (alive) setMeta(m);
-      } catch {}
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
-  }, [code, t]);
-
-  useEffect(() => {
-    if (!meta || meta.status === "lobby") return;
-    let alive = true;
-    const tick = async () => {
-      try {
-        const q = showAllHands ? "?revealAll=1" : "";
-        const r = await fetch(`/api/rooms/${code}/state${q}`);
-        if (!r.ok) return;
-        const v = await r.json();
-        if (alive) setView(v);
-      } catch {}
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
-  }, [code, meta?.status, showAllHands]);
-
-  useEffect(() => {
-    if (!meta || meta.status === "lobby") return;
-    let alive = true;
-    const tick = async () => {
-      try {
-        const r = await fetch(`/api/rooms/${code}/history`);
-        if (!r.ok) return;
-        const h = await r.json();
-        if (alive) setHistoryData(h);
-      } catch {}
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
-  }, [code, meta?.status]);
+    if (streamErr === "room not found") setErr(t("room.notFound"));
+    else if (streamErr) setErr(streamErr);
+    else setErr(null);
+  }, [streamErr, t]);
 
   const liveStep = Math.max(0, (historyData?.history.length ?? 1) - 1);
 

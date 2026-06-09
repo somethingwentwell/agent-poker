@@ -1,66 +1,61 @@
-import Database from "better-sqlite3";
-import fs from "fs";
-import os from "os";
-import path from "path";
+import { Pool, type PoolClient } from "pg";
 
-const DEFAULT_RELATIVE = path.join("data", "agentpoker.db");
+const DEFAULT_DATABASE_URL =
+  "postgres://agentpoker:agentpoker@localhost:5432/agentpoker";
 
-function isVercel(): boolean {
-  return Boolean(process.env.VERCEL);
+let pool: Pool | null = null;
+let schemaReady: Promise<void> | null = null;
+
+export function getDatabaseUrl(): string {
+  return process.env.DATABASE_URL?.trim() || DEFAULT_DATABASE_URL;
 }
 
-/** True when the DB file is not durable across deploys / restarts (e.g. Vercel /tmp). */
 export function isEphemeralStorage(): boolean {
-  if (process.env.STORAGE_EPHEMERAL === "1") return true;
-  if (isVercel() && !process.env.DATABASE_PATH) return true;
-  const dbPath = resolveDbPath();
-  return dbPath.startsWith(os.tmpdir());
+  return process.env.STORAGE_EPHEMERAL === "1";
 }
 
-export function resolveDbPath(): string {
-  const configured = process.env.DATABASE_PATH?.trim();
-  if (configured) {
-    return path.isAbsolute(configured)
-      ? configured
-      : path.join(process.cwd(), configured);
-  }
-  if (isVercel()) {
-    return path.join(os.tmpdir(), "agentpoker.db");
-  }
-  return path.join(process.cwd(), DEFAULT_RELATIVE);
+export function getPool(): Pool {
+  if (pool) return pool;
+
+  pool = new Pool({
+    connectionString: getDatabaseUrl(),
+    max: 10,
+  });
+
+  return pool;
 }
 
-let db: Database.Database | null = null;
-
-export function getDbPath(): string {
-  return resolveDbPath();
-}
-
-export function getDb(): Database.Database {
-  if (db) return db;
-
-  const dbPath = resolveDbPath();
-  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-
-  db = new Database(dbPath);
-  db.pragma("journal_mode = WAL");
-  db.exec(`
+async function ensureSchema(client: PoolClient): Promise<void> {
+  await client.query(`
     CREATE TABLE IF NOT EXISTS rooms (
       code TEXT PRIMARY KEY,
-      data TEXT NOT NULL,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
+      data JSONB NOT NULL,
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL
     );
-    CREATE INDEX IF NOT EXISTS idx_rooms_updated ON rooms(updated_at);
+    CREATE INDEX IF NOT EXISTS idx_rooms_updated ON rooms(updated_at DESC);
   `);
-
-  return db;
 }
 
-/** Close the singleton (tests / before restore). */
-export function closeDb(): void {
-  if (db) {
-    db.close();
-    db = null;
+export async function initDb(): Promise<void> {
+  if (!schemaReady) {
+    schemaReady = (async () => {
+      const client = await getPool().connect();
+      try {
+        await ensureSchema(client);
+      } finally {
+        client.release();
+      }
+    })();
+  }
+  await schemaReady;
+}
+
+/** Close the pool (tests / before restore). */
+export async function closeDb(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = null;
+    schemaReady = null;
   }
 }

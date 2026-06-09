@@ -11,7 +11,7 @@ export async function GET(
   { params }: { params: Promise<{ code: string }> },
 ) {
   const { code } = await params;
-  const room = getRoom(code);
+  const room = await getRoom(code);
   if (!room) return NextResponse.json({ error: "room not found" }, { status: 404 });
   return NextResponse.json(roomMeta(room));
 }

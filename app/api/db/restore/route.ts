@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   const replace = url.searchParams.get("replace") === "1";
 
   try {
-    const result = importDatabase(body, { replace });
+    const result = await importDatabase(body, { replace });
     return NextResponse.json({ ok: true, ...result });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "restore failed";

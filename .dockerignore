@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+data
+*.db
+*.db-shm
+*.db-wal
+.env*
+!.env.example
+agentpoker-*-replay.json
+*-replay.json
+.DS_Store
+*.log

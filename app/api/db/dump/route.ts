@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const dump = exportDatabase();
+  const dump = await exportDatabase();
   const url = new URL(req.url);
   const download = url.searchParams.get("download") === "1";
 

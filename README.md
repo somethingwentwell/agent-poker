@@ -9,12 +9,15 @@ replay every hand action by action.
 
 ## Quick start
 
+### Local dev (Postgres + Redis required)
+
 ```bash
 npm install
-cp .env.example .env       # optional: set NEXT_PUBLIC_APP_URL for tunnels / LAN agents
-npm run slice-sprites      # crop sprite/poker.jpg -> public/sprites/000..055.png
-npm run slice-cards        # slice sprite/cards.png -> public/sprites/cards/*.png
-npm run dev                # http://localhost:3000
+cp .env.example .env
+docker compose up -d postgres redis   # or run your own Postgres + Redis
+npm run slice-sprites                 # crop sprite/poker.jpg -> public/sprites/000..055.png
+npm run slice-cards                   # slice sprite/cards.png -> public/sprites/cards/*.png
+npm run dev                           # http://localhost:3000
 ```
 
 Then:
@@ -28,6 +31,23 @@ Then:
    ```
 3. Watch the lobby fill up (1s sync). Click **Start Match**.
 4. Agents poll and play. When the match finishes, click **Replay**.
+
+### Docker Compose (full stack)
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+```
+
+App: `http://localhost:3000` (override with `APP_PORT` in `.env`).
+
+Services:
+
+| Service  | Default port | Purpose |
+|----------|--------------|---------|
+| `app`    | 3000         | Next.js game server + UI |
+| `postgres` | 5432       | Durable room storage (JSONB per room) |
+| `redis`  | 6379         | Hot-state cache + cross-instance invalidation |
 
 ## How players work
 
@@ -44,9 +64,10 @@ Full contract is on the `/docs` page. Summary:
 |--------|------|---------|
 | POST | `/api/rooms` | create a room |
 | POST | `/api/rooms/:code/join` | agent joins → `{playerId, token}` |
-| GET  | `/api/rooms/:code` | lobby/meta (UI 1s poll) |
+| GET  | `/api/rooms/:code/events` | **SSE** — live meta + state + history |
+| GET  | `/api/rooms/:code` | lobby/meta (one-shot) |
 | POST | `/api/rooms/:code/start` | host starts the match |
-| GET  | `/api/rooms/:code/state` | redacted per-player view + legal actions |
+| GET  | `/api/rooms/:code/state` | redacted per-player view (one-shot fallback) |
 | POST | `/api/rooms/:code/action` | submit fold/check/call/raise |
 | GET  | `/api/rooms/:code/history` | full match history for replay |
 
@@ -62,53 +83,50 @@ npm test
 
 ## Tech
 
-Next.js (App Router) + TypeScript + Tailwind. Room state is persisted in
-**SQLite** (`data/agentpoker.db` locally) with a process-local cache for
-fast polling. Each room is stored as a JSON blob.
+Next.js (App Router) + TypeScript + Tailwind.
+
+**Postgres** stores each room as a JSONB blob (durable). **Redis** caches hot room
+state and fans out **SSE** push events so the UI and agents update instantly
+without polling. A process-local L1 cache avoids repeated Redis round-trips
+within the same Node process.
+
+Agents subscribe to `GET /api/rooms/:code/events` (default). Set `USE_SSE=0` on
+the reference agent to fall back to polling `/state`.
 
 UI supports **English**, **简体中文**, and **繁體中文** — use the language
 switcher (top-right). Preference is saved in a cookie + localStorage.
 
-## Deploy to Vercel
+## Environment
 
-The app is Vercel-ready (`vercel.json`, `better-sqlite3` as a server external
-package, all API routes on the **Node.js** runtime).
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `DATABASE_URL` | `postgres://agentpoker:agentpoker@localhost:5432/agentpoker` | Postgres connection |
+| `REDIS_URL` | `redis://localhost:6379` | Redis connection |
+| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | Public URL for agents / QR codes |
+| `DUMP_SECRET` | — | Protects `/api/db/dump` and `/api/db/restore` |
 
-1. Push the repo and import in Vercel (or `vercel`).
-2. Set environment variables:
-   - `NEXT_PUBLIC_APP_URL` — your production URL (e.g. `https://your-app.vercel.app`)
-   - `DUMP_SECRET` — random string to protect dump/restore endpoints
-3. Deploy. SQLite uses `/tmp/agentpoker.db` on Vercel (**ephemeral** — data is
-   lost on cold starts and redeploys). Check `GET /api/meta` → `storage.ephemeral`.
+Check `GET /api/meta` for runtime storage info.
 
-For demos this is fine. Back up before redeploying:
+## Backup & restore
 
 ```bash
-# Remote (production)
-curl -H "Authorization: Bearer $DUMP_SECRET" \
-  "https://your-app.vercel.app/api/db/dump?download=1" -o backup.json
-
-# Local
+# Local CLI
 npm run db:dump -- -o backup.json
 npm run db:restore -- backup.json          # merge
 npm run db:restore -- backup.json --replace # wipe + restore
-```
 
-Restore to a running server:
+# Remote (set DUMP_SECRET in production)
+curl -H "Authorization: Bearer $DUMP_SECRET" \
+  "https://your-host/api/db/dump?download=1" -o backup.json
 
-```bash
 curl -X POST -H "Authorization: Bearer $DUMP_SECRET" \
   -H "Content-Type: application/json" \
   --data @backup.json \
-  "https://your-app.vercel.app/api/db/restore"
+  "https://your-host/api/db/restore"
 ```
 
-Optional: set `DATABASE_PATH` to a mounted volume path if you self-host with
-persistent disk instead of Vercel serverless.
+Legacy `agentpoker-sqlite-dump` backups can still be imported.
 
 ## TODO
 
-- [ ] **Redis** — hot-state cache + pub/sub for multi-instance deploys.
-- [ ] **Postgres** — durable history, analytics, and long-term storage.
-- [ ] Optional WebSocket/SSE push to replace polling.
 - [ ] Reconnect tokens & spectator-only links.

@@ -120,6 +120,15 @@ export default function DocsPage({ apiBase }: { apiBase: string }) {
       />
       <Endpoint
         method="GET"
+        path="/api/rooms/:code/events?playerId=&token="
+        desc={ep.events.desc}
+        requestLabel={t("docs.requestBody")}
+        responseLabel={t("docs.responseBody")}
+        res={`// SSE stream — each message:
+{ "type": "room", "meta": { ... }, "state": { ... }, "history": { ... } }`}
+      />
+      <Endpoint
+        method="GET"
         path="/api/rooms/:code/state?playerId=&token="
         desc={ep.state.desc}
         requestLabel={t("docs.requestBody")}

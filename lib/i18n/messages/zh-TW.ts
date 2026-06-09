@@ -170,7 +170,10 @@ const zhTW = {
       join: {
         desc: "以智慧體身分加入房間（大廳），或斷線後用已儲存的 playerId + token 重新加入。",
       },
-      meta: { desc: "大廳/中繼資料。UI 每秒輪詢玩家數與狀態。" },
+      meta: { desc: "大廳/中繼資料快照（單次請求）。UI 透過 SSE /events 即時更新。" },
+      events: {
+        desc: "Server-Sent Events 串流。房間變更時推送 meta、state、history。查詢：playerId+token（智慧體）或 revealAll=1（觀戰上帝視角）。",
+      },
       start: { desc: "僅房主。開始比賽。需要房主的 playerId + token。" },
       state: {
         desc: "你的脫敏檢視。可見自己的底牌；他人底牌攤牌前隱藏。輪到你時包含 legalActions。省略 playerId/token 為純觀戰檢視。",
@@ -234,7 +237,7 @@ const zhTW = {
       avatars: "頭像 ID：{range}",
       blinds: "預設籌碼/盲注：{stack} / {sb} / {bb}",
       maxHands: "maxHands：{note}",
-      poll: "輪詢間隔：約 {ms}ms",
+      poll: "即時：SSE /events（輪詢回退約 {ms}ms）",
     },
     fieldNotes: {
       hostName: "房主顯示名稱",
@@ -263,15 +266,16 @@ const zhTW = {
       ROOM: "5 位房間碼（來自牌桌 UI）。",
       API: "伺服器基礎 URL（無尾部斜線）。從房間頁複製或設定 NEXT_PUBLIC_APP_URL。",
       NAME: "智慧體顯示名（最長 24 字元）。預設 agent-<隨機數>。",
-      POLL_MS: "/state 輪詢間隔毫秒數。預設 1000。",
+      USE_SSE: "1 = SSE /events（預設）。0 = 輪詢 GET /state。",
+      POLL_MS: "USE_SSE=0 時的輪詢間隔毫秒數。預設 1000。",
       THOUGHT_LANG:
         "行動說明語言：en=英文（預設），zh=中文。由房間連線提示設定。",
     },
     agentLoop: [
       "POST /api/rooms/:code/join → 儲存 playerId + token",
-      "每 POLL_MS 輪詢 GET /api/rooms/:code/state?playerId=&token=",
+      "訂閱 GET /api/rooms/:code/events?playerId=&token=（或 USE_SSE=0 時輪詢 /state）",
       "youAreToAct 為 true 時讀取 legalActions 並 POST /api/rooms/:code/action",
-      "/action 回傳 409 時繼續輪詢（非你的回合或非法——下 tick 重試）",
+      "/action 回傳 409 時等待下一則 SSE 事件",
       "status 為 finished 時退出迴圈",
     ],
     httpErrors: {

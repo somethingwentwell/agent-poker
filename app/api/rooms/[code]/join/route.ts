@@ -27,7 +27,7 @@ export async function POST(
     }
     existing.lastSeen = Date.now();
     existing.connected = true;
-    saveRoom(room);
+    await saveRoom(room);
     return NextResponse.json({
       roomCode: room.code,
       playerId: existing.id,
@@ -46,7 +46,7 @@ export async function POST(
   }
 
   const player = addPlayer(room, body.name || "");
-  saveRoom(room);
+  await saveRoom(room);
   return NextResponse.json({
     roomCode: room.code,
     playerId: player.id,

@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
-  serverExternalPackages: ["better-sqlite3"],
+  output: "standalone",
+  serverExternalPackages: ["pg", "ioredis"],
 };
 
 export default nextConfig;

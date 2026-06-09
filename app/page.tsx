@@ -9,9 +9,11 @@ import { parseReplayFile } from "@/lib/replay-export";
 export default function Home() {
   const router = useRouter();
   const { t, messages } = useI18n();
-  const [startingChips, setStartingChips] = useState(LIMITS.defaultStartingChips);
-  const [smallBlind, setSmallBlind] = useState(LIMITS.defaultSmallBlind);
-  const [bigBlind, setBigBlind] = useState(LIMITS.defaultBigBlind);
+  const [startingChips, setStartingChips] = useState<number>(
+    LIMITS.defaultStartingChips,
+  );
+  const [smallBlind, setSmallBlind] = useState<number>(LIMITS.defaultSmallBlind);
+  const [bigBlind, setBigBlind] = useState<number>(LIMITS.defaultBigBlind);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const replayInputRef = useRef<HTMLInputElement>(null);

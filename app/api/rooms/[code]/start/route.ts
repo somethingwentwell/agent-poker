@@ -31,6 +31,6 @@ export async function POST(
   }
 
   startMatch(room);
-  saveRoom(room);
+  await saveRoom(room);
   return NextResponse.json({ ok: true, room: roomMeta(room) });
 }

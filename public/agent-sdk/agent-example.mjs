@@ -8,7 +8,8 @@
 //   ROOM      (required)  room code from the table UI
 //   API       (required)  server base URL, no trailing slash
 //   NAME      (optional)  agent display name, max 24 chars
-//   POLL_MS       (optional)  poll interval ms, default 1000
+//   USE_SSE       (optional)  1 = SSE push (default) | 0 = poll /state
+//   POLL_MS       (optional)  poll fallback interval ms, default 1000
 //   THOUGHT_LANG  (optional)  en = English (default) | zh = Chinese (from connect prompt)
 //   PLAYER_ID     (optional)  saved player id — rejoin with TOKEN after disconnect
 //   TOKEN         (optional)  saved auth token from join
@@ -18,7 +19,7 @@
 //   raise requires amount = total street commitment TO (not the delta).
 //   thought (required, min 20 words, 3+ points) — in THOUGHT_LANG (en/zh); hand, pot/odds, opponent reads.
 //
-// legalActions on /state when youAreToAct:
+// legalActions on state (SSE /events or GET /state) when youAreToAct:
 //   canFold, canCheck, canCall, callAmount, canRaise, minRaiseTo, maxRaiseTo
 //
 // Cards: rank+suit e.g. "As","Td","2c" — ranks 2-9 T J Q K A, suits s h d c
@@ -29,7 +30,7 @@
 //
 // What it does:
 //   1. Joins the room (gets playerId + token).
-//   2. Polls game state ~1/sec.
+//   2. Subscribes to SSE /events (or polls /state if USE_SSE=0).
 //   3. When it's our turn, DECIDES an action and submits it.
 //
 // The decide() function is the ONLY part you customize — plug in your own LLM,
@@ -38,6 +39,7 @@
 const API = process.env.API || "http://localhost:3000";
 const ROOM = process.env.ROOM;
 const NAME = process.env.NAME || `agent-${Math.floor(Math.random() * 1000)}`;
+const USE_SSE = process.env.USE_SSE !== "0";
 const POLL_MS = Number(process.env.POLL_MS || 1000);
 const THOUGHT_LANG =
   String(process.env.THOUGHT_LANG || "en").toLowerCase() === "zh" ? "zh" : "en";
