@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# local data & sqlite
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# agent / local settings (env, credentials, cursor, replays)
+.env*
+!.env.example
+.cursor/
+.claude/
+agentpoker-*-replay.json
+*-replay.json
+
+# logs & OS
+*.log
+.DS_Store
+
+# build artifacts
+tsconfig.tsbuildinfo
+
+# generated sprites (run npm run slice-cards)
+public/sprites/*.png
+public/sprites/cards/

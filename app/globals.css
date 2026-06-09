@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --evo-blue: #6ec7e4;
+  --evo-blue6: #06cefc;
+  --evo-green: #77f2ae;
+  --evo-yellow: #ffd880;
+  --evo-gray11: #53565a;
+  --evo-gray1: #d9d9d6;
+}
+
+body {
+  background:
+    radial-gradient(ellipse 1200px 800px at 50% -20%, rgba(83, 86, 90, 0.35) 0%, transparent 55%),
+    #000000;
+  color: var(--evo-gray1);
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Top padding clears fixed language switcher + notch */
+.page-shell {
+  @apply px-4 sm:px-6 pb-8 sm:pb-12;
+  padding-top: max(3.75rem, calc(env(safe-area-inset-top) + 2.75rem));
+}
+
+.lang-switcher {
+  top: max(0.75rem, env(safe-area-inset-top));
+  right: max(0.75rem, env(safe-area-inset-right));
+}
+
+/* Panels — neutral surface, brand border accent (<10% color) */
+.evo-panel {
+  @apply rounded-2xl bg-evo-gray11/20 border border-evo-gray11/50;
+}
+
+.evo-panel-accent {
+  @apply rounded-2xl border border-evo-blue/20 bg-evo-gradient-subtle;
+}
+
+/* Primary CTA — Blue 6 emphasis on dark bg (VI 3.8) */
+.evo-btn-primary {
+  @apply rounded-xl bg-evo-blue6 text-black font-bold transition hover:brightness-110 disabled:opacity-50 min-h-11 sm:min-h-0;
+}
+
+.evo-btn-secondary {
+  @apply rounded-xl border border-evo-blue/40 text-evo-gray1 font-bold transition hover:bg-evo-gray11/40 min-h-11 sm:min-h-0;
+}
+
+.evo-btn-ghost {
+  @apply rounded-lg bg-evo-gray11/60 text-evo-gray1 transition hover:bg-evo-gray9/60 min-h-10 sm:min-h-0;
+}
+
+.evo-gradient-text {
+  background: linear-gradient(90deg, #71c5fa, #6ec7e4, #77f2ae);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Poker table — neutral base, blue rim accent (no large green/blue fill) */
+.felt-table {
+  background: radial-gradient(ellipse at center, #3a3d40 0%, #2a2d30 45%, #1a1a1a 100%);
+  border: 1px solid rgba(110, 199, 228, 0.28);
+  box-shadow:
+    inset 0 0 80px rgba(0, 0, 0, 0.55),
+    inset 0 0 40px rgba(110, 199, 228, 0.04),
+    0 20px 60px rgba(0, 0, 0, 0.65);
+}
+
+.playing-card {
+  background: #fdfdfb;
+  color: #111;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Insight yellow — chip stacks / pot badges (VI 3.4, small accent) */
+.chip-badge {
+  background: linear-gradient(180deg, #ffd880, #e8c46a);
+  color: #000000;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* Chip discs — CSS shapes (not card sprite) */
+.chip-disc {
+  @apply block rounded-full border border-black/25;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.chip-disc-gold {
+  background: radial-gradient(circle at 35% 30%, #ffe9a8, #e8b84a 55%, #c9942e);
+}
+
+.chip-disc-red {
+  background: radial-gradient(circle at 35% 30%, #ff8a8a, #c42b2b 55%, #8a1515);
+}
+
+.chip-disc-white {
+  background: radial-gradient(circle at 35% 30%, #ffffff, #d9d9d6 70%, #a8a8a5);
+}
+
+.dealer-button {
+  @apply bg-white text-black border-2 border-evo-gray9;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 2px 4px rgba(0, 0, 0, 0.45);
+}
+
+.sprite-pop {
+  image-rendering: auto;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.5));
+}
+
+@keyframes pulseTurn {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(6, 206, 252, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(6, 206, 252, 0);
+  }
+}
+
+.turn-ring {
+  animation: pulseTurn 1.2s infinite;
+}
