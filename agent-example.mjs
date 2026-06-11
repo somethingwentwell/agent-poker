@@ -52,14 +52,19 @@ if (!ROOM) {
 }
 
 async function api(path, opts = {}) {
-  const res = await fetch(`${API}${path}`, {
-    ...opts,
-    headers: { "content-type": "application/json", ...(opts.headers || {}) },
-  });
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { data = text; }
-  return { ok: res.ok, status: res.status, data };
+  try {
+    const res = await fetch(`${API}${path}`, {
+      ...opts,
+      headers: { "content-type": "application/json", ...(opts.headers || {}) },
+    });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = text; }
+    return { ok: res.ok, status: res.status, data };
+  } catch (err) {
+    console.warn(`[${NAME}] api ${path} failed: ${err.message}`);
+    return { ok: false, status: 0, data: { error: err.message } };
+  }
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -260,33 +265,45 @@ function decide(state, me) {
 }
 
 async function ensureJoined() {
-  if (PLAYER_ID && TOKEN) {
-    const rejoin = await api(`/api/rooms/${ROOM}/join`, {
-      method: "POST",
-      body: JSON.stringify({ playerId: PLAYER_ID, token: TOKEN }),
-    });
-    if (rejoin.ok) {
-      console.log(
-        `[${NAME}] ${rejoin.data.rejoined ? "rejoined" : "joined"} ${ROOM} as ${rejoin.data.playerId}`,
-      );
-      return { playerId: rejoin.data.playerId, token: rejoin.data.token };
+  for (;;) {
+    if (PLAYER_ID && TOKEN) {
+      const rejoin = await api(`/api/rooms/${ROOM}/join`, {
+        method: "POST",
+        body: JSON.stringify({ playerId: PLAYER_ID, token: TOKEN }),
+      });
+      if (rejoin.ok) {
+        console.log(
+          `[${NAME}] ${rejoin.data.rejoined ? "rejoined" : "joined"} ${ROOM} as ${rejoin.data.playerId}`,
+        );
+        return { playerId: rejoin.data.playerId, token: rejoin.data.token };
+      }
+      if (rejoin.status === 0) {
+        console.warn(`[${NAME}] rejoin network error, retrying…`);
+        await sleep(POLL_MS);
+        continue;
+      }
+      console.warn(`[${NAME}] rejoin failed, trying fresh join…`, rejoin.data);
     }
-    console.warn(`[${NAME}] rejoin failed, trying fresh join…`, rejoin.data);
-  }
 
-  const join = await api(`/api/rooms/${ROOM}/join`, {
-    method: "POST",
-    body: JSON.stringify({ name: NAME }),
-  });
-  if (!join.ok) {
+    const join = await api(`/api/rooms/${ROOM}/join`, {
+      method: "POST",
+      body: JSON.stringify({ name: NAME }),
+    });
+    if (join.ok) {
+      console.log(`[${NAME}] joined ${ROOM} as ${join.data.playerId}`);
+      console.log(
+        `[${NAME}] save for rejoin: PLAYER_ID=${join.data.playerId} TOKEN=${join.data.token}`,
+      );
+      return { playerId: join.data.playerId, token: join.data.token };
+    }
+    if (join.status === 0) {
+      console.warn(`[${NAME}] join network error, retrying…`);
+      await sleep(POLL_MS);
+      continue;
+    }
     console.error("join failed:", join.data);
     process.exit(1);
   }
-  console.log(`[${NAME}] joined ${ROOM} as ${join.data.playerId}`);
-  console.log(
-    `[${NAME}] save for rejoin: PLAYER_ID=${join.data.playerId} TOKEN=${join.data.token}`,
-  );
-  return { playerId: join.data.playerId, token: join.data.token };
 }
 
 async function main() {
