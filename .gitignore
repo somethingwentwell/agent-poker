@@ -19,6 +19,10 @@ data/
 agentpoker-*-replay.json
 *-replay.json
 
+# custom BYO-agent scripts — only agent-example.mjs is tracked
+*-agent.mjs
+/SKILL.md
+
 # logs & OS
 *.log
 .DS_Store
